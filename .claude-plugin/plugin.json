@@ -16,5 +16,7 @@
     "mediapipe",
     "mongolian",
     "ffmpeg"
-  ]
+  ],
+  "license": "MIT",
+  "repository": "https://github.com/SaagiiSG/goat-word-behind"
 }
