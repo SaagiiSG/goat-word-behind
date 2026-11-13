@@ -1,0 +1,20 @@
+{
+  "name": "goat-word-behind",
+  "version": "1.0.0",
+  "description": "Word Behind Head · Толгойн ард үг: a giant silver Mongolian word behind the speaker's head, with a teal glowing line or ring behind them, teal list chips and plain white captions. Uses a MediaPipe person cut-out on every frame. Renders a 1080x1920 MP4 for Reels/TikTok.",
+  "author": {
+    "name": "GOAT Academy"
+  },
+  "keywords": [
+    "video",
+    "editing",
+    "reels",
+    "tiktok",
+    "talking-head",
+    "text-behind",
+    "cutout",
+    "mediapipe",
+    "mongolian",
+    "ffmpeg"
+  ]
+}

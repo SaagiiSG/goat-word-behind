@@ -1,0 +1,13 @@
+{
+  "name": "goat-word-behind",
+  "owner": {
+    "name": "GOAT Academy"
+  },
+  "plugins": [
+    {
+      "name": "goat-word-behind",
+      "source": "./",
+      "description": "Word Behind Head · Толгойн ард үг: word-behind-head look for Reels/TikTok, with a person cut-out. Mongolian-first."
+    }
+  ]
+}
