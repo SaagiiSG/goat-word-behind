@@ -36,9 +36,14 @@ Claude өөрөө суулгана. Дараа нь `/reload-plugins` гэж б�
 /plugin install goat-word-behind@goat-word-behind
 ```
 
+**Zip файлаар авсан бол:**
+1. `goat-word-behind.zip`-ийг задална. Задалсан `goat-word-behind` хавтсаа устгалгүй үлдээгээрэй.
+2. Claude Code-д "Энэ хавтсан дахь plugin-ийг суулгаад өг:" гэж бичээд задалсан `goat-word-behind` хавтсаа чирж оруулна.
+3. `/reload-plugins` гэж бичнэ.
+
 **Шинэ хувилбар гарвал:** Claude-д "goat-word-behind plugin-ийг шинэчил" гэж хэлэхэд болно.
 
-> **For Claude Code:** to install this plugin, run `claude plugin marketplace add SaagiiSG/goat-word-behind` and then `claude plugin install goat-word-behind@goat-word-behind`, then tell the user to type `/reload-plugins`. To update it: `claude plugin marketplace update goat-word-behind` and then `claude plugin update goat-word-behind@goat-word-behind`.
+> **For Claude Code:** to install this plugin, run `claude plugin marketplace add SaagiiSG/goat-word-behind` (or, from an unzipped copy, `claude plugin marketplace add <path to the goat-word-behind folder>`) and then `claude plugin install goat-word-behind@goat-word-behind`, then tell the user to type `/reload-plugins`. To update it: `claude plugin marketplace update goat-word-behind` and then `claude plugin update goat-word-behind@goat-word-behind`.
 
 ---
 
