@@ -1,0 +1,45 @@
+@font-face { font-family: "Science Gothic"; src: url("fonts/ScienceGothic%5BCTRS,slnt,wdth,wght%5D.ttf"); font-weight: 100 900; font-stretch: 50% 200%; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter%5Bopsz,wght%5D.ttf"); font-weight: 100 900; }
+
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+#root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#dim { position: absolute; inset: 0; background: #000; }
+#deco { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#subject { position: absolute; inset: 0; }
+
+.word {
+  position: absolute; left: 0; right: 0; top: 250px; text-align: center; white-space: nowrap; opacity: 0; text-transform: uppercase;
+  font: 900 300px/0.9 "Science Gothic", sans-serif; font-variation-settings: "wdth" 70;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
+}
+.word i { display: inline-block; width: 0; height: 0; }
+.word span {
+  display: inline-block;
+  background: linear-gradient(180deg, #ffffff 25%, #a9b2ba);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.wave { fill: none; stroke: #43e5d2; stroke-width: 8; filter: drop-shadow(0 0 8px #43e5d2); opacity: 0; }
+.ring { opacity: 0; }
+.arc { fill: none; stroke: #43e5d2; stroke-width: 10; stroke-linecap: round; filter: drop-shadow(0 0 10px #43e5d2); }
+.ticks { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 16; stroke-dasharray: 2 36; }
+
+#chips { position: absolute; left: 300px; top: 0; }
+.chip {
+  position: absolute; left: 0; white-space: nowrap;
+  display: flex; gap: 20px; align-items: center; opacity: 0; transform-origin: left center;
+  font: 600 44px/1 "Inter", sans-serif; color: #fff; text-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+}
+.ico {
+  width: 76px; height: 76px; border-radius: 20px; flex: none; display: grid; place-items: center;
+  background: linear-gradient(135deg, #6bf5e2, #18a897); box-shadow: 0 0 28px rgba(67, 229, 210, 0.55);
+}
+.ico::after { content: ""; width: 40%; height: 40%; border-radius: 7px; background: #fff; }
+
+.cap {
+  position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; opacity: 0;
+  font: 800 60px/1.15 "Inter", sans-serif; text-transform: uppercase; letter-spacing: 0.02em;
+  color: #fff; text-shadow: 0 0 14px rgba(0, 0, 0, 0.6);
+}
+.cap span { display: inline-block; }

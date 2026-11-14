@@ -1,0 +1,34 @@
+// Fill a look's HyperFrames template with the plan, render it, put the sound under it.
+import { cpSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { ffmpeg } from "./media.mjs";
+import { hf } from "./hf.mjs";
+
+export async function buildProject(ctx, data) {
+  const { hfDir, skillDir, work, plan } = ctx;
+  mkdirSync(hfDir, { recursive: true });
+  cpSync(join(skillDir, "template"), hfDir, { recursive: true });
+  if (existsSync(join(skillDir, "fonts"))) cpSync(join(skillDir, "fonts"), join(hfDir, "fonts"), { recursive: true });
+  cpSync(join(work, "cut.mp4"), join(hfDir, "main.mp4"));
+  const index = join(hfDir, "index.html");
+  writeFileSync(index, readFileSync(index, "utf8").replaceAll("{{DUR}}", ctx.dur.toFixed(3)));
+  const PLAN = { dur: ctx.dur, captions: ctx.captions, words: ctx.words, look: plan.look ?? {}, texts: plan.texts ?? [], ...data };
+  writeFileSync(join(hfDir, "plan.js"), `window.PLAN = ${JSON.stringify(PLAN)};\n`);
+  return hfDir;
+}
+
+export async function renderProject(hfDir, outSilent) {
+  const lint = await hf(["lint", hfDir]);
+  const said = (lint.stdout + lint.stderr).trim();
+  if (lint.code) throw new Error(`HyperFrames found problems in the template:\n${said.slice(-1500)}`);
+  if (said.includes("⚠")) console.warn(said.slice(-1500));
+  // 4 Chrome workers: the docs' sweet spot, and more than that can choke a laptop
+  const r = await hf(["render", hfDir, "-o", outSilent, "--sdr", "--quality", "delivery", "--fps", "30", "--workers", "4"]);
+  if (r.code || !existsSync(outSilent))
+    throw new Error(`HyperFrames could not render the video:\n${(r.stdout + r.stderr).trim().slice(-1500)}`);
+}
+
+export async function mux(silent, sound, out) {
+  await ffmpeg(["-i", silent, "-i", sound, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+    "-movflags", "+faststart", "-shortest", out], "put the sound under the video");
+}
