@@ -104,7 +104,9 @@ class Ctx:
     def __init__(self, plan, plan_dir, skill_dir, clips, cuts, dur):
         self.plan, self.plan_dir, self.skill_dir = plan, plan_dir, skill_dir
         self.clips, self.cuts, self.dur = clips, cuts, dur
-        self.items = sorted(plan.get("texts", []), key=lambda x: x.get("start", 0))
+        # start/end are optional in plans: default to the whole video, so looks can read them directly
+        self.items = sorted(({**x, "start": float(x.get("start", 0)), "end": float(x.get("end", dur))}
+                             for x in plan.get("texts", [])), key=lambda x: x["start"])
         self.rng = random.Random(plan.get("seed", 21))
         self._fonts, self._cache = {}, {}
 

@@ -1,5 +1,7 @@
 # 🐐 Word Behind Head · Толгойн ард үг
 
+<p align="center"><img src="assets/poster.jpg" width="300" alt="Word Behind Head · Толгойн ард үг"></p>
+
 **Claude Code дотор ажилладаг видео эдитийн skill.** Асар том үг таны толгойн ард гарна: та үгийн өмнө зогсож байгаа мэт. Жагсаалт бүрт жижиг дүрс тэмдэг гарна.
 
 Reels, TikTok-д бэлэн 1080×1920 MP4 гаргана. GOAT Academy-гийн 14 эдитийн стилийн нэг.
