@@ -15,8 +15,12 @@ export function parseTranscript(json) {
     .filter((x) => x.text && x.text !== "♪" && !/^[[(].*[\])]$/.test(x.text));
 }
 
+// large-v3-turbo: on an 8 GB M3, 4 s and 1.9 GB for a 6.5 s clip, against 15 s and 4 GB for large-v3,
+// with Mongolian as good (14 Nov test). medium mixes in Kazakh letters and loops; small is unusable.
+export const WHISPER_MODEL = "large-v3-turbo";
+
 export async function transcribe(media, workDir) {
-  const r = await hf(["transcribe", media, "-d", workDir, "--engine", "whisper", "--model", "large-v3",
+  const r = await hf(["transcribe", media, "-d", workDir, "--engine", "whisper", "--model", WHISPER_MODEL,
     "--language", "mn", "--json"]);
   const res = JSON.parse(r.stdout.trim().split("\n").at(-1) || "{}");
   if (!res.ok) throw new Error(`Whisper could not transcribe ${media}: ${res.error?.message ?? r.stderr.slice(-500)}`);

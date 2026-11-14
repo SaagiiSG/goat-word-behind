@@ -18,9 +18,9 @@ Run `node --version` (needs 22 or newer) and `ffmpeg -version`. If either is mis
 - Mac: `brew install node ffmpeg whisper-cpp` (whisper-cpp makes the captions; Homebrew's build uses the Mac's graphics chip, so it is fast).
 - Windows: `winget install OpenJS.NodeJS.LTS` and `winget install Gyan.FFmpeg`, then close and reopen the terminal. For captions, download `whisper-bin-x64.zip` from https://github.com/ggml-org/whisper.cpp/releases, unzip it, and set `HYPERFRAMES_WHISPER_PATH` to the `whisper-cli.exe` inside (`setx HYPERFRAMES_WHISPER_PATH "C:\path\to\whisper-cli.exe"`, then reopen the terminal). Without it the captions step tries to build Whisper and needs developer tools.
 
-The first video downloads, once: the speech model (Whisper large-v3, about 3 GB), the cut-out model (168 MB), and a private copy of Chrome that draws the frames. Tell the user the first run takes a while; after that it starts at once. Nothing is uploaded: everything runs on their computer, with no account.
+The first video downloads, once: the speech model (Whisper large-v3-turbo, about 1.6 GB), the cut-out model (168 MB), and a private copy of Chrome that draws the frames. Tell the user the first run takes a while; after that it starts at once. Nothing is uploaded: everything runs on their computer, with no account.
 
-**Long steps:** the first `transcribe` (the 3 GB download, then about 3 min per 6–7 s of speech on an 8 GB Mac) and every `render` can run longer than a normal command timeout. Run them in the background, or with a 600000 ms timeout, and wait for them to end. Never stop one and start it again: an interrupted download starts again from zero. Whisper needs about 4 GB of memory, so ask the user to close other heavy apps first on an 8 GB computer.
+**Long steps:** the first `transcribe` (the 1.6 GB download) and every `render` can run longer than a normal command timeout. Run them in the background, or with a 600000 ms timeout, and wait for them to end. Never stop one and start it again: an interrupted download starts again from zero. Whisper needs about 2 GB of memory; on an 8 GB computer ask the user to close other heavy apps first.
 
 **Windows has not been tested yet.** If a step fails there, show the error to the user in plain words and suggest a look without a cut-out (for example goat-slam-words).
 

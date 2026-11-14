@@ -9,7 +9,7 @@ Downloaded or used at run time, not bundled:
 
 - **HyperFrames** (https://github.com/heygen-com/hyperframes), run with `npx hyperframes@0.9.46`: Apache License 2.0, by HeyGen. It draws the frames in a private copy of Chrome and runs the two models below locally.
 - **u2net_human_seg** person cut-out model, downloaded by HyperFrames: Apache License 2.0.
-- **Whisper large-v3** speech model, downloaded by HyperFrames and run with whisper.cpp: MIT License, by OpenAI (model) and ggml-org (whisper.cpp).
+- **Whisper large-v3-turbo** speech model, downloaded by HyperFrames and run with whisper.cpp: MIT License, by OpenAI (model) and ggml-org (whisper.cpp).
 - **GSAP** (https://gsap.com), loaded from jsDelivr by the template: GSAP's own standard licence (free to use).
 
 The caption grouping, pause-cutting and pacing rules in `scripts/words.mjs` are adapted from Nate Herk's herk-edit-kit (https://github.com/nateherkai/herk-edit-kit), under this notice:
