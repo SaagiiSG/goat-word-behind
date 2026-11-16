@@ -1,7 +1,8 @@
 // Fill a look's HyperFrames template with the plan, render it, put the sound under it.
 import { cpSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { ffmpeg } from "./media.mjs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { ffmpeg, run } from "./media.mjs";
 import { hf } from "./hf.mjs";
 
 export async function buildProject(ctx, data) {
@@ -9,10 +10,12 @@ export async function buildProject(ctx, data) {
   mkdirSync(hfDir, { recursive: true });
   cpSync(join(skillDir, "template"), hfDir, { recursive: true });
   if (existsSync(join(skillDir, "fonts"))) cpSync(join(skillDir, "fonts"), join(hfDir, "fonts"), { recursive: true });
+  cpSync(join(dirname(fileURLToPath(import.meta.url)), "goat-lib.js"), join(hfDir, "goat-lib.js"));
   cpSync(join(work, "cut.mp4"), join(hfDir, "main.mp4"));
+  if (existsSync(join(work, "media"))) cpSync(join(work, "media"), join(hfDir, "media"), { recursive: true });
   const index = join(hfDir, "index.html");
   writeFileSync(index, readFileSync(index, "utf8").replaceAll("{{DUR}}", ctx.dur.toFixed(3)));
-  const PLAN = { dur: ctx.dur, captions: ctx.captions, words: ctx.words, look: plan.look ?? {}, texts: plan.texts ?? [], ...data };
+  const PLAN = { dur: ctx.dur, captions: ctx.captions, words: ctx.words, cuts: ctx.cuts ?? [], clips: ctx.clips ?? [], look: plan.look ?? {}, texts: plan.texts ?? [], ...data };
   writeFileSync(join(hfDir, "plan.js"), `window.PLAN = ${JSON.stringify(PLAN)};\n`);
   return hfDir;
 }
@@ -31,4 +34,12 @@ export async function renderProject(hfDir, outSilent) {
 export async function mux(silent, sound, out) {
   await ffmpeg(["-i", silent, "-i", sound, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
     "-movflags", "+faststart", "-shortest", out], "put the sound under the video");
+}
+
+// Reels and TikTok take frame 0 as the thumbnail: warn when it is one flat colour.
+export async function checkFirstFrame(video) {
+  const { stdout } = await run("ffmpeg", ["-v", "error", "-i", video, "-frames:v", "1",
+    "-vf", "scale=108:192,format=gray", "-f", "rawvideo", "-"], { binary: true });
+  if (stdout.length && Math.max(...stdout) - Math.min(...stdout) < 12)
+    console.log("[goat] note: the first frame (the thumbnail) is empty: start the main text or footage at 0.");
 }

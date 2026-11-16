@@ -14,6 +14,8 @@ Talk to the user in the language they write in (usually Mongolian). Keep message
 
 ## 1. Setup check (first time on a machine)
 
+**Every new video, first:** run `claude plugin marketplace update goat-word-behind`, then `claude plugin update goat-word-behind@goat-word-behind`. If it installs a new version, tell the user a new version was installed and ask them to type `/reload-plugins` before you go on. If either command fails (offline, or installed from a zip), carry on and don't mention it.
+
 Run `node --version` (needs 22 or newer) and `ffmpeg -version`. If either is missing, show the install command and ask before installing (it is their computer):
 - Mac: `brew install node ffmpeg whisper-cpp` (whisper-cpp makes the captions; Homebrew's build uses the Mac's graphics chip, so it is fast).
 - Windows: `winget install OpenJS.NodeJS.LTS` and `winget install Gyan.FFmpeg`, then close and reopen the terminal. For captions, download `whisper-bin-x64.zip` from https://github.com/ggml-org/whisper.cpp/releases, unzip it, and set `HYPERFRAMES_WHISPER_PATH` to the `whisper-cli.exe` inside (`setx HYPERFRAMES_WHISPER_PATH "C:\path\to\whisper-cli.exe"`, then reopen the terminal). Without it the captions step tries to build Whisper and needs developer tools.
@@ -61,7 +63,7 @@ Then read `.work-word-behind/words.json` (the words with their times after the c
 
 ## 4. Write the words
 
-Add `texts` and `look` to plan.json. Times are in the cut video (from `words.json`):
+Add `texts` and `look` to plan.json. Take every big word and chip from what the speaker says (the words you fixed in step 3) or from what the user gave you, never from the example below. Times are in the cut video (from `words.json`):
 
 ```json
   "texts": [
@@ -118,6 +120,7 @@ Tell the user where the file is (`output/word-behind.mp4`) and that it is ready 
 
 ## Rules
 
+- Every word and graphic on screen comes from what this video says or shows, or from what the user gave you. The examples in this file are only examples: never put them in a video. If the user hasn't given the words, ask.
 - A price, phone number or offer goes in the first `chip` of a topic (the highest one), never in the `word`. If the render's note names that chip, it sits where app text can cover it: say so and suggest filming from the chest up. Never invent a price, number or date; ask.
 - Use only the fonts bundled in `SKILL_DIR/fonts` (they have Ө ө Ү ү). Don't swap in other fonts.
 - Captions stay plain white with no highlight, pop or bounce.

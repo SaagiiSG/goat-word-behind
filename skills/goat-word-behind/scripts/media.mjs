@@ -2,8 +2,8 @@
 // Every skill ships its own copy (build.py copies core/*.mjs into each skill's scripts/),
 // so edit the file in core/, never a copy.
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { resolve, basename, extname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { resolve, basename, extname, dirname, join } from "node:path";
 
 export const W = 1080, H = 1920, FPS = 30;
 // Inside this box nothing is covered by Reels/TikTok buttons (Meta + TikTok guides combined).
@@ -96,36 +96,80 @@ async function checkClips(plan, planDir) {
   return out;
 }
 
-// Trim, cover-crop to 1080x1920 at each clip's cx/cy, 30 fps, join. Photos and clips without
-// sound (or with "sound": false) get silence, so the joined file always has a stereo track.
-export async function prep(plan, planDir, outPath) {
+const even = (n) => Math.round(Number(n) / 2) * 2;
+
+// One input's args and its filter chain: cover-crop to size at cx/cy, 30 fps, the look's own grade,
+// cut to length, optionally held on the last frame for `pad` more seconds.
+async function clipChain(c, [w, h], look, ctx, index, pad = 0) {
+  const t = c.dur.toFixed(3);
+  const args = c.info.still ? ["-loop", "1", "-framerate", String(FPS), "-t", t, "-i", c.path]
+    : ["-ss", c.start.toFixed(3), "-t", t, "-i", c.path];
+  const cx = Number(c.cx ?? 0.5), cy = Number(c.cy ?? 0.5);
+  const grade = look.clipFilter ? await look.clipFilter({ index, path: c.path, info: c.info, start: c.start, dur: c.dur,
+    still: c.info.still }, ctx) : "";
+  const vf = `scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos,` +
+    `crop=${w}:${h}:(iw-${w})*${cx}:(ih-${h})*${cy},setsar=1,fps=${FPS},${grade ? grade + "," : ""}` +
+    `trim=duration=${t},${pad > 0 ? `tpad=stop_mode=clone:stop_duration=${pad.toFixed(3)},` : ""}format=yuv420p`;
+  return { args, vf };
+}
+
+const VIDEO_OUT = ["-an", "-c:v", "libx264", "-preset", "medium", "-crf", "14", "-pix_fmt", "yuv420p",
+  "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"];
+
+// Trim, cover-crop to the look's FIT (default 1080x1920) at each clip's cx/cy, 30 fps, join. Photos and
+// clips without sound (or with "sound": false) get silence, so the joined file always has a stereo track.
+// A look may also set EXTRA / PER_CLIP (more files in <work>/media/).
+export async function prep(plan, planDir, outPath, look = {}) {
+  const ctx = { plan, planDir, run };
+  if (!plan.clips?.length && look.BLANK) {
+    const { dur, color } = look.BLANK(plan);
+    await ffmpeg(["-f", "lavfi", "-i", `color=c=${color}:s=${W}x${H}:r=${FPS}:d=${dur}`,
+      "-f", "lavfi", "-i", `anullsrc=r=48000:cl=stereo`, "-t", String(dur), "-c:v", "libx264", "-preset", "medium",
+      "-crf", "14", "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+      "-c:a", "aac", "-b:a", "256k", outPath], "make the blank video");
+    return { dur: frames(dur), cuts: [0], silent: [[0, frames(dur)]], clips: [] };
+  }
   const clips = await checkClips(plan, planDir);
+  const fit = (typeof look.FIT === "function" ? look.FIT(plan) : look.FIT ?? [W, H]).map(even);
   const args = [], fl = [];
-  clips.forEach((c, i) => {
+  for (const [i, c] of clips.entries()) {
     const t = c.dur.toFixed(3);
-    if (c.info.still) args.push("-loop", "1", "-framerate", String(FPS), "-t", t, "-i", c.path);
-    else args.push("-ss", c.start.toFixed(3), "-t", t, "-i", c.path);
-    const cx = Number(c.cx ?? 0.5), cy = Number(c.cy ?? 0.5);
-    fl.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,` +
-      `crop=${W}:${H}:(iw-${W})*${cx}:(ih-${H})*${cy},setsar=1,fps=${FPS},trim=duration=${t},format=yuv420p[v${i}]`);
+    const k = await clipChain(c, fit, look, ctx, i);
+    args.push(...k.args);
+    fl.push(`[${i}:v]${k.vf}[v${i}]`);
     fl.push(c.info.audio && !c.info.still && c.sound !== false
       ? `[${i}:a]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:${t}[a${i}]`
       : `anullsrc=r=48000:cl=stereo,atrim=0:${t}[a${i}]`);
-  });
+  }
   fl.push(clips.map((_, i) => `[v${i}][a${i}]`).join("") + `concat=n=${clips.length}:v=1:a=1[v][a]`);
   await ffmpeg([...args, "-filter_complex", fl.join(";"), "-map", "[v]", "-map", "[a]",
     "-c:v", "libx264", "-preset", "medium", "-crf", "14", "-pix_fmt", "yuv420p",
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
     "-c:a", "aac", "-b:a", "256k", outPath], "join the clips");
-  const cuts = [], silent = [];
+  const cuts = [], silent = [], out = [];
   let acc = 0;
   for (const c of clips) {
     cuts.push(frames(acc));
+    out.push({ start: frames(acc), dur: c.dur, still: c.info.still });
     // photos and clips without sound carry no speech: the pause cut keeps them whole
     if (c.info.still || !c.info.audio || c.sound === false) silent.push([frames(acc), frames(acc + c.dur)]);
     acc += c.dur;
   }
-  return { dur: frames(acc), cuts, silent };
+  const total = frames(acc);
+
+  // video-only side files: hold = pad with the last frame up to the main video's length
+  const media = join(dirname(outPath), "media");
+  const side = async (name, c, size, hold, index) => {
+    mkdirSync(media, { recursive: true });
+    const k = await clipChain(c, size, look, ctx, index, hold ? total - c.dur : 0);
+    await ffmpeg([...k.args, "-vf", k.vf, ...VIDEO_OUT, join(media, `${name}.mp4`)], `make ${name}.mp4`);
+  };
+  for (const x of look.EXTRA ? look.EXTRA(plan) : []) {
+    const [c] = await checkClips({ clips: [x.clip] }, planDir);
+    await side(x.name, c, x.fit.map(even), x.hold, 0);
+  }
+  if (look.PER_CLIP) for (const [i, c] of clips.entries()) await side(`clip-${i}`, c, fit, true, i);
+  return { dur: total, cuts, silent, clips: out };
 }
 
 // One frame per second, 270 px wide, 6 per row: a quick look at a whole render.

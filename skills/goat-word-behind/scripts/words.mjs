@@ -11,7 +11,9 @@ const snap = (x) => Math.round(x * FPS);
 export function parseTranscript(json) {
   const list = Array.isArray(json) ? json : json?.words ?? [];
   return list
-    .map((x) => ({ text: String(x.text ?? "").trim(), start: Number(x.start), end: Number(x.end) }))
+    // "star": true marks the word a look shows in its accent font (Glass Ribbon); nothing else is kept
+    .map((x) => ({ text: String(x.text ?? "").trim(), start: Number(x.start), end: Number(x.end),
+      ...(x.star === true && { star: true }) }))
     .filter((x) => x.text && x.text !== "♪" && !/^[[(].*[\])]$/.test(x.text));
 }
 
@@ -36,7 +38,8 @@ export async function transcribe(media, workDir) {
   return words;
 }
 
-// 2–4 words per caption, one line, breaking on pauses and after . ! ? …
+// 2–4 words per caption, one line, breaking on pauses and after . ! ? …, and before a second starred word.
+// A caption with a starred word gets `star`: that word's place in it (0 = the first word).
 export function groupCaptions(words, { maxWords = 4, minWords = 2, gap = 0.15, maxChars = 22, lead = 2 / FPS } = {}) {
   const len = (ws) => ws.map((x) => x.text).join(" ").length;
   const phrases = [];
@@ -49,20 +52,22 @@ export function groupCaptions(words, { maxWords = 4, minWords = 2, gap = 0.15, m
     const chunks = [[]];
     for (const x of p) {
       const c = chunks.at(-1);
-      if (c.length && (c.length >= maxWords || len([...c, x]) > maxChars)) chunks.push([x]);
+      if (c.length && (c.length >= maxWords || len([...c, x]) > maxChars || (x.star && c.some((y) => y.star)))) chunks.push([x]);
       else c.push(x);
     }
     // don't leave one word alone at the end if the chunk before can spare one
     const [a, b] = chunks.slice(-2);
-    if (b && b.length < minWords && a.length > minWords && len([a.at(-1), ...b]) <= maxChars) b.unshift(a.pop());
+    if (b && b.length < minWords && a.length > minWords && len([a.at(-1), ...b]) <= maxChars &&
+        !(a.at(-1).star && b.some((y) => y.star))) b.unshift(a.pop());
     groups.push(...chunks);
   }
-  const out = groups.map((ws) => ({ text: ws.map((x) => x.text).join(" "), first: ws[0], last: ws.at(-1) }));
+  const out = groups.map((ws) => ({ text: ws.map((x) => x.text).join(" "), first: ws[0], last: ws.at(-1),
+    star: ws.findIndex((x) => x.star) }));
   out.forEach((g, i) => { g.start = Math.max(0, g.first.start - lead, i ? out[i - 1].last.end : 0); });
   return out.map((g, i) => {
     const next = out[i + 1];
     const end = next && next.start - g.last.end < 0.3 ? next.start : g.last.end;
-    return { text: g.text, start: g.start, end };
+    return { text: g.text, start: g.start, end, ...(g.star >= 0 && { star: g.star }) };
   });
 }
 

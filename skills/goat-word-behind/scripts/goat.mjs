@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { die, run, probe, speech, prep, sheet } from "./media.mjs";
 import { transcribe, groupCaptions, silenceKeeps, retime, applyCut, parseTranscript } from "./words.mjs";
 import { mixSound, checkEvents, loudness } from "./sound.mjs";
-import { buildProject, renderProject, mux } from "./render.mjs";
+import { buildProject, renderProject, mux, checkFirstFrame } from "./render.mjs";
 import { hf } from "./hf.mjs";
 
 const SCRIPTS = dirname(fileURLToPath(import.meta.url));
@@ -46,10 +46,10 @@ async function main() {
   mkdirSync(work, { recursive: true });
   const main = join(work, "main.mp4"), cut = join(work, "cut.mp4");
   const transcript = join(work, "transcript.json"), wordsFile = join(work, "words.json");
-  const prepFile = join(work, "prep.json"), keepsFile = join(work, "keeps.json");
+  const prepFile = join(work, "prep.json"), keepsFile = join(work, "keeps.json"), cutsFile = join(work, "cuts.json");
 
   if (cmd === "prep") {
-    const r = await prep(plan, planDir, main);
+    const r = await prep(plan, planDir, main, look);
     writeJson(prepFile, r);
     console.log(`[goat] joined ${r.cuts.length} clip(s), ${sec(r.dur)} -> ${main}`);
     return;
@@ -90,6 +90,11 @@ async function main() {
       writeFileSync(keepsFile, key);
     }
     writeJson(wordsFile, keeps ? retime(words, keeps) : words);
+    // each clip's start in the cut timeline, for looks that place things per clip
+    if (existsSync(prepFile)) {
+      const starts = readJson(prepFile).cuts ?? [];
+      writeJson(cutsFile, keeps ? retime(starts.map((t) => ({ start: t, end: t })), keeps).map((x) => x.start) : starts);
+    }
     console.log(`[goat] ${sec(before)} -> ${sec((await probe(cut)).dur)} -> ${cut}${same ? " (video unchanged)" : ""}`);
     return;
   }
@@ -105,7 +110,9 @@ async function main() {
   const captions = look.TALKS && plan.captions !== false ? groupCaptions(words) : [];
   const hfDir = join(work, "hf");
   mkdirSync(hfDir, { recursive: true });
-  const ctx = { plan, planDir, work, hfDir, skillDir: SKILL_DIR, dur, words, captions, run, hf };
+  const cuts = existsSync(cutsFile) ? readJson(cutsFile) : [];
+  const clips = existsSync(prepFile) ? (readJson(prepFile).clips ?? []).map((c, i) => ({ ...c, start: cuts[i] ?? c.start })) : [];
+  const ctx = { plan, planDir, work, hfDir, skillDir: SKILL_DIR, dur, words, captions, cuts, clips, run, hf };
   const data = await look.prepare(ctx);
   await buildProject(ctx, data);
 
@@ -124,6 +131,7 @@ async function main() {
   await renderProject(hfDir, silent);
   await mux(silent, sound, out);
   await sheet(out, join(work, "sheet.jpg"));
+  await checkFirstFrame(out);
   const { lufs, peak } = await loudness(out);
   console.log(`[goat] done: ${out}`);
   console.log(`  ${sec(dur)}, ${events.length} sound effect(s), ${lufs} LUFS, peak ${peak} dBTP, ` +

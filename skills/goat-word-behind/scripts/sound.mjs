@@ -7,6 +7,8 @@ import { run, ffmpeg, probe } from "./media.mjs";
 export const SOUNDS = ["boom", "click", "ding", "hit", "marker", "notify", "paper", "pop", "projector",
   "riser", "shimmer", "shutter", "swish", "tape", "thud", "tick", "type", "whoosh"];
 
+const LOOPED = ["type", "marker", "projector"], FILE_SEC = 4, RISER_SEC = 1.5;
+
 export function checkEvents(events) {
   for (const e of events)
     if (!SOUNDS.includes(e.sound)) throw new Error(`unknown sound "${e.sound}". Choose from: ${SOUNDS.join(", ")}`);
@@ -73,10 +75,16 @@ export async function mixSound({ bed, total, voiceover, music, events = [], gain
   const fx = events.filter((e) => Number(e.at) >= 0 && Number(e.at) < total);
   const a2 = ["-i", bedWav], f2 = [`[0:a]volume=${gainDb.toFixed(2)}dB[b]`];
   fx.forEach((e, i) => {
-    const ms = Math.round(Number(e.at) * 1000);
-    const trim = e.dur ? `atrim=0:${Number(e.dur)},afade=t=out:st=${Math.max(0, e.dur - 0.02)}:d=0.02,` : "";
+    let at = Number(e.at), dur = e.dur ? Number(e.dur) : 0, pre = "";
+    if (dur && LOOPED.includes(e.sound) && dur > FILE_SEC) pre = `aloop=loop=-1:size=${FILE_SEC * 48000 + 1000},`;
+    if (dur && e.sound === "riser") { // builds to its peak at the end, so keep the end
+      if (dur < RISER_SEC) pre = `atrim=start=${RISER_SEC - dur},asetpts=PTS-STARTPTS,`;
+      else at += dur - RISER_SEC;
+    }
+    const ms = Math.round(at * 1000);
+    const trim = dur ? `atrim=0:${dur},afade=t=out:st=${Math.max(0, dur - 0.02)}:d=0.02,` : "";
     a2.push("-i", join(sfxDir, `${e.sound}.wav`));
-    f2.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,${trim}` +
+    f2.push(`[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,${pre}${trim}` +
       `volume=${Number(e.volume ?? 1) * gain},adelay=${ms}|${ms}[fx${i}]`);
   });
   const last = fx.length ? "[m]" : "[b]";
