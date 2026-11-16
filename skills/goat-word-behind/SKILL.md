@@ -20,7 +20,7 @@ Run `node --version` (needs 22 or newer) and `ffmpeg -version`. If either is mis
 - Mac: `brew install node ffmpeg whisper-cpp` (whisper-cpp makes the captions; Homebrew's build uses the Mac's graphics chip, so it is fast).
 - Windows: `winget install OpenJS.NodeJS.LTS` and `winget install Gyan.FFmpeg`, then close and reopen the terminal. For captions, download `whisper-bin-x64.zip` from https://github.com/ggml-org/whisper.cpp/releases, unzip it, and set `HYPERFRAMES_WHISPER_PATH` to the `whisper-cli.exe` inside (`setx HYPERFRAMES_WHISPER_PATH "C:\path\to\whisper-cli.exe"`, then reopen the terminal). Without it the captions step tries to build Whisper and needs developer tools.
 
-The first video downloads, once: the speech model (Whisper large-v3-turbo, about 1.6 GB), the cut-out model (168 MB), and a private copy of Chrome that draws the frames. Tell the user the first run takes a while; after that it starts at once. Nothing is uploaded: everything runs on their computer, with no account.
+The first video downloads, once: the speech model (Whisper large-v3-turbo, about 1.6 GB), the cut-out model (26 MB; about 280 MB if HyperFrames has never cut anyone out on this computer, since it then also fetches its model runtime and its own backup cut-out model), and a private copy of Chrome that draws the frames. Tell the user the first run takes a while; after that it starts at once. Nothing is uploaded: everything runs on their computer, with no account.
 
 **Long steps:** the first `transcribe` (the 1.6 GB download) and every `render` can run longer than a normal command timeout. Run them in the background, or with a 600000 ms timeout, and wait for them to end. Never stop one and start it again: an interrupted download starts again from zero. Whisper needs about 2 GB of memory; on an 8 GB computer ask the user to close other heavy apps first.
 
@@ -105,7 +105,7 @@ Before rendering, tell the user the plan in plain words (each big word with its 
 
 `goat render plan.json`
 
-It cuts the person out of every frame, draws the look, mixes the sound and writes the MP4 plus a contact sheet (one frame per second) at `.work-word-behind/sheet.jpg`. On our test Mac a 6.5 s clip took about 1.5 min: about 1 min to cut the person out, then about 25 s to draw. Longer videos take longer, and more if the computer is busy. Run the next render only after the last one ends. Read the contact sheet and one full-size frame per big word before saying it is done:
+It cuts the person out of every frame, draws the look, mixes the sound and writes the MP4 plus a contact sheet (one frame per second) at `.work-word-behind/sheet.jpg`. On our test Mac a 6 s clip took about 2 to 2.5 min: 1 to 1.5 min to cut the person out (about half a second a frame, so a 30 s video spends 6 to 9 min on it), then 25 to 40 s to draw. Longer videos take longer, and more if the computer is busy. Run the next render only after the last one ends. If it prints a note that the sharp cut-out failed, the video was still made, with HyperFrames' rougher cut-out: tell the user in plain words and look harder at the hair edge. Read the contact sheet and one full-size frame per big word before saying it is done:
 `ffmpeg -y -loglevel error -ss 2 -i output/word-behind.mp4 -frames:v 1 output/check-1.jpg`
 Check that:
 - the word is readable: the head covers part of it, not most of it. If the head hides too much, shorten the word;

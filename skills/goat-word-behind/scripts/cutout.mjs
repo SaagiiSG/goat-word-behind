@@ -1,16 +1,29 @@
 // The person cut-out, for looks that put things behind or under the speaker (goat-word-behind, goat-glass-ribbon):
-// make or reuse hf/subject.webm with HyperFrames' remove-background, and find the head in it.
-import { existsSync, statSync } from "node:fs";
+// make or reuse hf/subject.webm (the sharp MODNet cut-out in matte.mjs, or HyperFrames' remove-background if that
+// fails), and find the head in it.
+import { existsSync, statSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { modnetCutOut } from "./matte.mjs";
 
 // Make hf/subject.webm from cut.mp4, or reuse it while it is newer than cut.mp4. Returns its path.
-export async function cutOut({ work, hfDir, hf }) {
+export async function cutOut({ work, hfDir, hf, matte = modnetCutOut }) {
   const cut = join(work, "cut.mp4"), subject = join(hfDir, "subject.webm");
   if (!existsSync(subject) || statSync(subject).mtimeMs < statSync(cut).mtimeMs) {
-    console.log("[goat] cutting the person out of every frame (first run downloads a 168 MB model)…");
-    const r = await hf(["remove-background", cut, "-o", subject, "--quality", "best"]);
-    if (r.code || !existsSync(subject))
-      throw new Error(`the cut-out failed:\n${(r.stdout + r.stderr).trim().slice(-1200)}`);
+    console.log("[goat] cutting the person out of every frame (first run downloads a 26 MB model)…");
+    const tmp = join(hfDir, `.subject-${process.pid}.webm`); // reuse goes by name and age: never name a half-written file
+    try {
+      await matte(cut, tmp, { hf });
+      renameSync(tmp, subject);
+    } catch (e) {
+      try {
+        rmSync(tmp, { force: true });
+      } catch {} // Windows may still hold it; a leftover temp name is never reused, and the fallback must run
+      console.warn(`[goat] note: the sharp cut-out failed (${String(e.message).replace(/\s+/g, " ").trim()}), ` +
+        "so HyperFrames' rougher one is used");
+      const r = await hf(["remove-background", cut, "-o", subject, "--quality", "best"]);
+      if (r.code || !existsSync(subject))
+        throw new Error(`the cut-out failed:\n${(r.stdout + r.stderr).trim().slice(-1200)}`);
+    }
   }
   return subject;
 }

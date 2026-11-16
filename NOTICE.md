@@ -7,8 +7,10 @@ The code in this repository is MIT-licensed (see LICENSE). These bundled files k
 
 Downloaded or used at run time, not bundled:
 
-- **HyperFrames** (https://github.com/heygen-com/hyperframes), run with `npx hyperframes@0.9.46`: Apache License 2.0, by HeyGen. It draws the frames in a private copy of Chrome and runs the two models below locally.
-- **u2net_human_seg** person cut-out model, downloaded by HyperFrames: Apache License 2.0.
+- **HyperFrames** (https://github.com/heygen-com/hyperframes), run with `npx hyperframes@0.9.46`: Apache License 2.0, by HeyGen. It draws the frames in a private copy of Chrome, runs Whisper and the backup cut-out model locally, and installs ONNX Runtime.
+- **MODNet** person cut-out model (https://github.com/ZHKKKe/MODNet), as the ONNX export at https://huggingface.co/Xenova/modnet, downloaded by this skill to `~/.cache/goat-editing/` and run on the user's computer: Apache License 2.0 (https://github.com/ZHKKKe/MODNet#license), by Zhanghan Ke, Jiayu Sun, Kaican Li, Qiong Yan and Rynson W.H. Lau.
+- **ONNX Runtime** (onnxruntime-node, https://github.com/microsoft/onnxruntime), installed by HyperFrames and used by this skill to run MODNet: MIT License, by Microsoft.
+- **u2net_human_seg** person cut-out model, downloaded by HyperFrames and used only if the MODNet cut-out fails: Apache License 2.0.
 - **Whisper large-v3-turbo** speech model, downloaded by HyperFrames and run with whisper.cpp: MIT License, by OpenAI (model) and ggml-org (whisper.cpp).
 - **GSAP** (https://gsap.com), loaded from jsDelivr by the template: GSAP's own standard licence (free to use).
 
