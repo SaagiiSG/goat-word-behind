@@ -57,7 +57,7 @@ async function main() {
 
   if (cmd === "transcribe") {
     if (!look.TALKS) return console.log(`[goat] ${look.NAME} has no captions, so there is nothing to transcribe.`);
-    const words = await transcribe(need(main, "prep plan.json"), work);
+    const words = await transcribe(need(main, "prep plan.json"), work, plan.language ?? "mn");
     writeJson(transcript, words);
     console.log(`[goat] ${words.length} words -> ${transcript}`);
     console.log("Check the spelling. Fix the text in transcript.json, keep the times:");

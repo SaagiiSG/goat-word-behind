@@ -1,6 +1,7 @@
 // The sharp person cut-out: MODNet (Apache-2.0, https://github.com/ZHKKKe/MODNet) at 512x896 on the CPU, through
-// HyperFrames' own onnxruntime-node, plus two clean-ups: keep only what joins the body at the bottom edge, and
-// MODNet's one-frame delay against flicker. cutout.mjs falls back to HyperFrames' remove-background if this throws.
+// HyperFrames' own onnxruntime-node, plus three clean-ups: keep only the person's islands, hold the last good matte
+// over a frame that loses him, and MODNet's one-frame delay against flicker. cutout.mjs falls back to HyperFrames'
+// remove-background if this throws.
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -79,20 +80,52 @@ export async function modelFile(dir = join(homedir(), ".cache", "goat-editing"),
   return file;
 }
 
-// Zero every matte pixel not joined (alpha > T, 4-way) to the bottom edge, where a talking head's body is: drops wall
-// and pillar patches the model takes for a person. If nothing touches the bottom, the matte stays as it is. In place.
-export function keepBottomConnected(g, w, h, T = 12) {
-  const seen = new Uint8Array(w * h), stack = new Int32Array(w * h);
-  let sp = 0;
-  for (let x = 0; x < w; x++) { const i = (h - 1) * w + x; if (g[i] > T) { seen[i] = 1; stack[sp++] = i; } }
-  if (!sp) return g;
-  while (sp) {
-    const i = stack[--sp], x = i % w;
-    for (const j of [i - w, i + w, x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1])
-      if (j >= 0 && j < w * h && !seen[j] && g[j] > T) { seen[j] = 1; stack[sp++] = j; }
+// Keep the person: of the matte's islands (alpha > T, 4-way), keep the biggest, any at least `share` of its size (a
+// second person, a hand held clear of the body), and any on the bottom edge at least `floor` of the frame (a desk the
+// model takes in on some frames: kept on all, so it doesn't blink under a look's dim). Zero the rest: wall and pillar
+// patches (Odko's pillar strip peaks at 5% of her) and specks along the bottom edge. In place.
+export function keepPerson(g, w, h, T = 12, share = 0.15, floor = 0.005) {
+  const P = w * h, label = new Int32Array(P), stack = new Int32Array(P), area = [0], edge = [false];
+  let sp = 0, id = 0;
+  const visit = (j) => { if (!label[j] && g[j] > T) { label[j] = id; stack[sp++] = j; } };
+  for (let s = 0; s < P; s++) {
+    if (label[s] || g[s] <= T) continue;
+    id = area.length;
+    let n = 0, low = false;
+    visit(s);
+    while (sp) {
+      const i = stack[--sp], x = i % w;
+      n++;
+      if (i >= w) visit(i - w);
+      if (i < P - w) visit(i + w);
+      else low = true;
+      if (x > 0) visit(i - 1);
+      if (x < w - 1) visit(i + 1);
+    }
+    area.push(n);
+    edge.push(low);
   }
-  for (let i = 0; i < w * h; i++) if (!seen[i]) g[i] = 0;
+  const min = share * area.reduce((a, b) => Math.max(a, b));
+  const keep = area.map((a, l) => a >= min || (edge[l] && a >= floor * P));
+  for (let i = 0; i < P; i++) if (!keep[label[i]]) g[i] = 0;
   return g;
+}
+
+// A frame whose matte (pixels above T) shrinks below `drop` of the median of the last `n` frames lost the person
+// (MODNet missed him, or the clean-up kept the wrong island): it goes out as the last good matte instead. The median
+// counts the real sizes, so someone who really leaves is followed within n/2 frames.
+export async function* holdCollapsed(frames, n = 15, drop = 0.4, T = 12) {
+  const sizes = [];
+  let good;
+  for await (const g of frames) {
+    let size = 0;
+    for (let i = 0; i < g.length; i++) if (g[i] > T) size++;
+    const median = sizes.length ? [...sizes].sort((a, b) => a - b)[sizes.length >> 1] : 0;
+    if (good && size < drop * median) yield good;
+    else yield (good = g);
+    sizes.push(size);
+    if (sizes.length > n) sizes.shift();
+  }
 }
 
 // MODNet's one-frame delay over a stream of mattes: a pixel that jumps on one frame while the frames either side
@@ -128,7 +161,7 @@ export async function modnetCutOut(cut, out, { hf, ort, session }) {
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
     "-metadata:s:v:0", "alpha_mode=1", "-an", out], ["pipe", "ignore", "pipe"]);
   try {
-    await pipeline(dec.stdout, (frames) => steady(mattes(frames, ort, session)), enc.stdin);
+    await pipeline(dec.stdout, (frames) => steady(holdCollapsed(mattes(frames, ort, session))), enc.stdin);
     await Promise.all([dec.done, enc.done]);
   } catch (e) {
     dec.kill("SIGKILL"); // no-op once it has ended
@@ -155,7 +188,7 @@ async function* mattes(frames, ort, session) {
       const o = (await session.run({ input: new ort.Tensor("float32", input, [1, 3, MH, MW]) })).output.data;
       const g = Buffer.alloc(P);
       for (let i = 0; i < P; i++) g[i] = Math.min(255, Math.max(0, Math.round(o[i] * 255)));
-      yield keepBottomConnected(g, MW, MH);
+      yield keepPerson(g, MW, MH);
     }
   }
 }

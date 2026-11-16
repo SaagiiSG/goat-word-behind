@@ -35,6 +35,8 @@ Make `raw/` and `output/` in the current folder. Ask for the clips: the user tal
 - A plain background that contrasts with hair and clothes (dark hair against a light wall, or a light top against a dark room). The cut-out finds the person by contrast. A darker room makes the silver word shine most.
 - One person, good light on the face, no one walking behind. Speak clearly; the captions come from the speech.
 
+If they speak English, add `"language": "en"` to plan.json, so the transcript comes out in English (Whisper hears Mongolian otherwise).
+
 Then run `goat probe raw/*`. It prints each file's size, length, whether it has sound, whether it is HDR, and `speech` spans (when someone is talking).
 
 ## 3. Prepare, transcribe, cut
@@ -84,7 +86,7 @@ Add `texts` and `look` to plan.json. Take every big word and chip from what the 
 - `dim`: how much the background behind the speaker darkens, from `0` (as filmed) to `0.8`. Default `0.4`. Raise it to `0.6` on a bright wall so the word stands out; the speaker is never darkened.
 - `deco`: what moves behind the head: `"auto"` (default: the 1st, 3rd… word gets the teal line, the 2nd, 4th… the turning ring), `"line"`, `"ring"` or `"none"`.
 
-**Auto sound effects:** a soft whoosh as each word rises, a shimmer as a ring draws on, a light pop as each chip appears.
+**Auto sound effects:** a soft whoosh as each word rises, a light pop as each chip appears. Never two within 0.5 s: a chip that comes in with a word stays quiet.
 
 Before rendering, tell the user the plan in plain words (each big word with its time, the chips) and ask "OK?". This is the only approval needed.
 

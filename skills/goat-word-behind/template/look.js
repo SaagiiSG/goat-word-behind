@@ -25,8 +25,10 @@ const words = P.big.map((w) => {
   const e = el("div", "word", document.getElementById("words"), w.text);
   e.firstChild.appendChild(document.createElement("i")); // sits on the baseline, so layout() can find the letters
   const { start: s, end: t } = w;
-  tl.fromTo(e, { opacity: 0, y: 60, filter: "blur(12px)" },
+  // a word on frame 0 (the Reels thumbnail) is already up, with its line or ring: no rise-in
+  if (w.rises) tl.fromTo(e, { opacity: 0, y: 60, filter: "blur(12px)" },
     { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "power3.out" }, s);
+  else e.style.opacity = 1;
   tl.to(e, { opacity: 0, y: -40, duration: 0.25, ease: "power2.in" }, Math.max(s + 0.5, t - 0.25));
 
   const head = w.head ?? { cx: 540, top: 700, width: 420 };
@@ -34,7 +36,8 @@ const words = P.big.map((w) => {
     const y = head.top + 0.15 * head.width;
     const p = svg("path", { class: "wave", d: `M-100 ${y} C 120 ${y - 90}, 300 ${y + 90}, 480 ${y} S 840 ${y - 90}, 1180 ${y}` }, deco);
     tl.fromTo(p, { x: -60 }, { x: 60, duration: t - s, ease: "none" }, s);
-    tl.fromTo(p, { opacity: 0 }, { opacity: 1, duration: 0.3 }, s);
+    if (w.rises) tl.fromTo(p, { opacity: 0 }, { opacity: 1, duration: 0.3 }, s);
+    else p.style.opacity = 1;
     tl.to(p, { opacity: 0, duration: 0.25 }, Math.max(s + 0.3, t - 0.25));
   } else if (w.deco === "ring") {
     const r = clamp(0.8 * head.width, 220, 420), cx = head.cx, cy = head.top + Math.min(0.5 * head.width, 300);
@@ -42,10 +45,12 @@ const words = P.big.map((w) => {
     const g = svg("g", { class: "ring" }, deco);
     const arcG = svg("g", {}, g);
     const arc = svg("circle", { class: "arc", cx, cy, r, transform: `rotate(200 ${cx} ${cy})`,
-      "stroke-dasharray": `${len} ${2 * Math.PI * r}`, "stroke-dashoffset": len }, arcG);
+      "stroke-dasharray": `${len} ${2 * Math.PI * r}`, "stroke-dashoffset": w.rises ? len : 0 }, arcG);
     const ticks = svg("circle", { class: "ticks", cx, cy, r: r + 45 }, g);
-    tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.2 }, s);
-    tl.fromTo(arc, { attr: { "stroke-dashoffset": len } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.6, ease: "power2.out" }, s);
+    if (w.rises) {
+      tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.2 }, s);
+      tl.fromTo(arc, { attr: { "stroke-dashoffset": len } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.6, ease: "power2.out" }, s);
+    } else g.style.opacity = 1;
     tl.fromTo(arcG, { rotation: 0 }, { rotation: 40, duration: t - s, ease: "none", svgOrigin: `${cx} ${cy}` }, s);
     tl.fromTo(ticks, { rotation: 0 }, { rotation: -30, duration: t - s, ease: "none", svgOrigin: `${cx} ${cy}` }, s);
     tl.to(g, { opacity: 0, duration: 0.25 }, Math.max(s + 0.6, t - 0.25));

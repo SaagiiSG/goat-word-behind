@@ -31,12 +31,16 @@ const decoOf = (plan, i) => {
   return d === "auto" ? (i % 2 ? "ring" : "line") : d;
 };
 
-// Captions just under the lowest chin seen (970 when there's room, as in the preview), chips under the
-// captions. A close-up pushes both low; past 1248 the app's own text may cover them, so prepare() warns.
+// Captions just under the usual chin (970 when there's room, as in the preview), chips under the captions. The usual
+// chin is the 75th percentile of the sampled ones, so one stray frame (a hand by the face, a bad mask) can't push them
+// down. A close-up pushes both low; past 1248 the app's own text may cover them, so prepare() warns.
 export const CHIP_ROW = 76 + 18;
 export function layoutFor(heads) {
-  const known = heads.filter(Boolean);
-  const capY = known.length ? Math.round(clamp(Math.max(...known.map((h) => h.chin)) + 90, 970, 1420)) : 970;
+  const chins = heads.filter(Boolean).map((h) => h.chin).sort((a, b) => a - b);
+  if (!chins.length) return { capY: 970, chipsTop: 1030 };
+  const chin = chins[Math.ceil(0.75 * chins.length) - 1];
+  let capY = Math.round(clamp(chin + 90, 970, 1420));
+  if (capY > 1213 && chin + 65 <= 1213) capY = 1213; // a little closer to the chin keeps their bottom (+35) inside 1248
   return { capY, chipsTop: capY + 60 };
 }
 
@@ -54,7 +58,7 @@ export async function prepare(ctx) {
   const big = [];
   for (const [i, w] of bigWords(plan).entries())
     big.push({ text: w.text, start: Number(w.start), end: Math.min(Number(w.end), dur), deco: decoOf(plan, i),
-      head: await at(Number(w.start) + 0.3) });
+      rises: Number(w.start) >= 1 / 30, head: await at(Number(w.start) + 0.3) }); // on frame 0 (the thumbnail): already up
   // each chip takes the lowest row that no chip still on screen is using
   const list = [];
   for (const c of chips(plan)) {
@@ -66,7 +70,10 @@ export async function prepare(ctx) {
   const heads = [...big, ...list].map((x) => x.head);
   const none = noHeadNote(heads, Boolean, "the big words, captions and chips");
   if (none) console.warn(none);
-  const layout = layoutFor(heads);
+  // the captions run the whole video: 8 more reads spread over it, so one odd frame where a word starts can't place them
+  const spread = [];
+  for (let i = 0; i < 8; i++) spread.push(await at(((i + 0.5) * dur) / 8));
+  const layout = layoutFor([...heads, ...spread]);
   const low = offSafe(layout, list);
   if (low.length)
     console.warn(`[goat] note: ${low.map((x) => `"${x}"`).join(", ")} sit below the safe area, where the app's own ` +
@@ -74,12 +81,11 @@ export async function prepare(ctx) {
   return { big, chips: list, chipRow: CHIP_ROW, ...layout };
 }
 
+// v1's whoosh and pop at about 30% of its levels (Saagii, 16 Nov: "bring the sounds effects down a bit"); members raise
+// them with "sfx": {"volume": …}. Never two within 0.5 s: a word's whoosh beats a chip's pop, the earlier one plays.
 export function sfx(plan) {
-  const out = [];
-  bigWords(plan).forEach((w, i) => {
-    out.push({ sound: "whoosh", at: Math.max(0, w.start - 0.15), volume: 0.5 });
-    if (decoOf(plan, i) === "ring") out.push({ sound: "shimmer", at: w.start, volume: 0.4 });
-  });
-  for (const c of chips(plan)) out.push({ sound: "pop", at: c.start, volume: 0.6 });
-  return out;
+  const out = [], keep = (e) => out.every((k) => Math.abs(k.at - e.at) >= 0.5 - 1e-9) && out.push(e);
+  for (const w of bigWords(plan)) keep({ sound: "whoosh", at: Math.max(0, w.start - 0.15), volume: 0.15 });
+  for (const c of chips(plan)) keep({ sound: "pop", at: c.start, volume: 0.18 });
+  return out.sort((a, b) => a.at - b.at);
 }
